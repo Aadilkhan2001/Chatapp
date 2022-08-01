@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- css cdn for bootstrap icon  -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.9.1/font/bootstrap-icons.css">
+
+    <!-- css cdn for bootstrap 5  -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.0/dist/css/bootstrap.min.css" rel="stylesheet"
+        integrity="sha384-gH2yIJqKdNHPEq0n4Mqa/HGKIhSkIHeL5AyhkYV8i59U5AR6csBvApHHNl/vI1Bx" crossorigin="anonymous">
+    <!-- javascript cdn for bootstrap  -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.0/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-A3rJD856KowSb7dwlZdYEkO39Gagi7vIsF0jrRAoQmDKKtQBHUuLZ9AsSv4jD4Xa"
+        crossorigin="anonymous"></script>
+
+    <title>Feeed Message |</title>
+</head>
+
+<body>
+
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="#">Awosome Chat</a>
+            <button class="btn btn-dark mx-2" type="button" id="signinbutton" onclick="signin();"><i
+                    class="bi bi-box-arrow-in-right"></i>
+                SignIn</button>
+            <button class="btn btn-dark" type="button" id="signoutbutton" onclick="signout();">
+                <i class="bi bi-box-arrow-in-left"></i>SignOut</button>
+        </div>
+    </nav>
+    <div class="container">
+        <div class="text text-center shadow my-2">
+            <h1>Messages</h1>
+        </div> 
+        <div class="container" id="messages" >
+        </div>
+        <div class="container">
+            <div class="row my-2">
+                    <div class="col-md-4">
+                        <input type="text" id='message' class="form-control">
+                   
+                    </div>
+                    <div class="col-md-2">
+                        <div class="d-grid">
+                        <button onclick="sendmessage();" class="btn btn-dark">
+                            Send
+                        </button>
+                    </div>
+                    </div>
+                    
+                        
+                    
+
+
+            </div>
+        </div>
+    </div>
+    <div class="modal fade" id="exampleModal" tabindex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="exampleModalLabel">Login First</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="loginform" method="POST" enctype="multipart/form-data">
+                        <div class="form-group my-2">
+                            <input type="text" id="username" name="username" placeholder="Enter your username"
+                                class="form-control" />
+                        </div>
+                        <div class="form-group my-2">
+                            <input type="password" id="password" name="password" placeholder="Enter your password "
+                                class="form-control" />
+                        </div>
+
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-primary">Submit</button>
+                </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</body>
+            <!-- cdn for ajax  -->
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+        <!-- cdn for socket io  -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.1/socket.io.js"
+    integrity="sha512-9mpsATI0KClwt+xVZfbcf2lJ8IFBAwsubJ6mI3rtULwyM3fBmQFzj0It4tGqxLOGQwGfJdk/G+fANnxfq9/cew=="
+    crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script>
+    //connecting with current server using socket io 
+    const socket = io();
+
+    // handling connect event of socket io server
+    socket.on('connect', () => { console.log('connected'); }
+    );
+
+
+    //handling loginform submit event
+    $('#loginform')
+        .submit(function (e) {
+            $.ajax({
+                url: 'http://127.0.0.1:8000/login',
+                type: 'POST',
+                data: new FormData(this),
+                processData: false,
+                contentType: false,
+                success: function (token) {
+                    //storing token in localstorage
+                    localStorage.setItem('token', token['token']);
+                    alert('successfully login!!');
+                    location.href = 'http://127.0.0.1:8000/'
+                },
+                error: function () {
+                    alert("Invalid credential");
+                    location.href = 'http://127.0.0.1:8000/';
+                }
+            });
+            e.preventDefault();
+        });
+
+
+    function sendmessage() {
+        let message = document.getElementById('message').value;
+        let token = localStorage.getItem('token');
+        jQuery.ajax({
+            type: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`
+            },
+            url: 'http://127.0.0.1:8000/message/' + message,
+            error: function (xhr) {
+                //opening loginform modal if user is not signedin
+                var myModal = new bootstrap.Modal(document.getElementById('exampleModal'), {
+                    keyboard: false
+                })
+                let modalToggle = document.getElementById('exampleModal');
+                myModal.show(modalToggle);
+            },
+            success: function (data) {
+                //storing user name in localstorage for display sigedin user's message right side and others on left side
+                localStorage.setItem('username', data['data']);
+            }
+        });
+    }
+
+
+    //displaying message to user's if authorized
+    if (localStorage.getItem('token')) {
+        socket.on('recieve_message', (data) => {
+            let messages = document.getElementById('messages');
+            let right_coloumn = document.getElementById('recieved-message-right');
+            let element_text = document.createTextNode(`${data['message']} - ${data['data']}`);
+            if (localStorage.getItem('username') == data['data']) {
+                right_part = ` <div class="row my-2">
+                        <div class="col-md-6 offset-6 text-end shadow bg-dark text-light" id="recieved-message-right">
+                            ${data['message']}
+                            <p class="text-end"><small class="text-danger">${data['data']}</small></p>
+                        </div>`;
+                $('#messages').append(right_part)
+            }
+            else {
+                right_part = ` <div class="row my-2">
+                        <div class="col-md-6 shadow bg-dark text-light" id="recieved-message-right">
+                            ${data['message']}
+                            <p class="text-end"><small class="text-danger">${data['data']}</small></p>
+                        </div>`;
+                $('#messages').append(right_part);
+            }
+
+        })
+
+    }
+
+
+    //if user logged in then hiding signin button else hidding signout button
+    if (localStorage.getItem('token')) {
+        $('#signinbutton').hide();
+    }
+    else {
+        $('#signoutbutton').hide();
+    }
+
+    function signin() {
+        var myModal = new bootstrap.Modal(document.getElementById('exampleModal'), {
+            keyboard: false
+        })
+        let modalToggle = document.getElementById('exampleModal');
+        myModal.show(modalToggle);
+
+    }
+    function signout()
+    {
+        localStorage.clear();
+        alert('user logout!!!');
+        location.href='http://127.0.0.1:8000/'
+    }
+    //handling disconnect event socketio
+    socket.on('disconnected', () => {
+        console.log('disconnected');
+    });
+
+
+</script>
+
+</html>
